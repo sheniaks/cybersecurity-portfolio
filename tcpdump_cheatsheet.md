@@ -13,137 +13,119 @@ tcpdump [options] [expression]
 
 ## 🌐 HTTP Traffic
 
-### 🔍 Capture HTTP Traffic (Port 80)
 ```bash
-tcpdump -i any tcp port 80
-```
-
-### 📄 Show ASCII Payload (requests/responses)
-```bash
-tcpdump -A -i any tcp port 80
-```
-
-### ✅ Filter HTTP Requests (GET, POST, etc.)
-```bash
-tcpdump -A -r file.pcap | grep -E '^(GET|POST|HEAD|PUT|DELETE|OPTIONS|PATCH) '
-```
-
-### 📬 Filter HTTP Responses
-```bash
-tcpdump -A -r file.pcap | grep 'HTTP/1\.1'
-```
-
-### 🔢 Count HTTP Methods
-```bash
-grep -E '^(GET|POST|HEAD)' file.txt | awk '{print $1}' | sort | uniq -c
+tcpdump -i any tcp port 80                          # Capture HTTP packets
+tcpdump -A -i any tcp port 80                       # Show ASCII payload
+tcpdump -A -r file.pcap | grep 'HTTP/1\.1'         # Filter HTTP responses
+tcpdump -A -r file.pcap | grep -E '^(GET|POST)'     # Filter HTTP requests
+grep -E '^(GET|POST)' file.txt | awk '{print $1}' | sort | uniq -c  # Count methods
 ```
 
 ---
 
 ## 🔒 SSH Traffic
 
-### 🛠️ Capture SSH (Port 22)
 ```bash
-tcpdump -i any port 22
+tcpdump -i any port 22                              # Capture SSH
+tcpdump -r ssh.pcap 'src port 22' | wc -l           # Count replies
+tcpdump -r ssh.pcap 'dst port 22' | wc -l           # Count requests
 ```
 
-### ✅ Count Requests / Responses
+🧮 Count both:
 ```bash
-tcpdump -r ssh.pcap 'src port 22' | wc -l    # Replies (server → client)
-tcpdump -r ssh.pcap 'dst port 22' | wc -l    # Requests (client → server)
+echo "Requests: $(tcpdump -r ssh.pcap 'dst port 22' | wc -l)"
+echo "Replies:  $(tcpdump -r ssh.pcap 'src port 22' | wc -l)"
 ```
 
-### 🔒 SSH Traffic — Client vs Server
-
-- SSH **requests** are packets **to port 22** (client → server):
-  ```bash
-  tcpdump -r ssh.pcap 'dst port 22' | wc -l
-  ```
-
-- SSH **replies** are packets **from port 22** (server → client):
-  ```bash
-  tcpdump -r ssh.pcap 'src port 22' | wc -l
-  ```
-
-### 🧮 Count SSH Packets (Combined Output)
+📝 From text:
 ```bash
-echo "SSH Requests: $(tcpdump -r ssh.pcap 'dst port 22' | wc -l)"
-echo "SSH Replies:  $(tcpdump -r ssh.pcap 'src port 22' | wc -l)"
-```
-
-### 📝 grep-Based Count (from ASCII Text File)
-```bash
-grep '\.ssh >' ssh.txt | wc -l     # SSH replies
-grep '> .*\.ssh' ssh.txt | wc -l   # SSH requests
-```
-
-### 🧠 SSH Count One-Liner:
-```bash
-tcpdump -r ssh.pcap 'tcp port 22' | awk '
-  /.ssh >/ { replies++ }
-  /> .*\.ssh/ { requests++ }
-  END { print "Requests:", requests, "Replies:", replies }'
+grep '\.ssh >' ssh.txt | wc -l                     # SSH replies
+grep '> .*\.ssh' ssh.txt | wc -l                   # SSH requests
 ```
 
 ---
 
 ## 📨 DNS Traffic
 
-### 🔍 Capture DNS Traffic (Port 53)
 ```bash
-tcpdump -i any port 53
-```
-
-### 📬 Count DNS Requests
-```bash
-tcpdump -r dns.pcap | grep 'A? ' | wc -l
-```
-
-### 📤 Count DNS Responses
-```bash
-tcpdump -r dns.pcap | grep ' A ' | grep -v 'A?' | wc -l
-```
-
-### 🌍 Extract Domains
-```bash
-tcpdump -r dns.pcap | grep 'A? ' | awk '{print $NF}' | sort | uniq
-```
-
-### 🌐 Extract Resolved IPs
-```bash
-tcpdump -r dns.pcap | grep ' A ' | grep -v 'A?' | awk '{print $NF}' | sort | uniq
+tcpdump -i any port 53                              # Capture DNS
+tcpdump -r dns.pcap | grep 'A? ' | wc -l            # Count queries
+tcpdump -r dns.pcap | grep ' A ' | grep -v 'A?' | wc -l  # Count responses
+tcpdump -r dns.pcap | grep 'A? ' | awk '{print $NF}' | sort | uniq     # Domains
+tcpdump -r dns.pcap | grep ' A ' | grep -v 'A?' | awk '{print $NF}' | sort | uniq  # Resolved IPs
+tcpdump -n -r file.pcap port 53 and 'udp[10] & 0x80 = 0' | head -1      # First DNS query
 ```
 
 ---
 
 ## 💣 ICMP (Ping)
 
-### 🔍 Capture ICMP (Ping Requests/Replies)
 ```bash
-tcpdump -i any icmp
-```
-
-### ✅ Count ICMP Echo Requests / Replies
-```bash
-tcpdump -r icmp.pcap icmp[icmptype] = 8 | wc -l   # Echo requests
-tcpdump -r icmp.pcap icmp[icmptype] = 0 | wc -l   # Echo replies
+tcpdump -i any icmp                                  # Capture ICMP
+tcpdump -r icmp.pcap icmp[icmptype] = 8 | wc -l      # Count Echo Requests
+tcpdump -r icmp.pcap icmp[icmptype] = 0 | wc -l      # Count Echo Replies
 ```
 
 ---
 
-## 📦 Extras
+## 🚩 TCP Flag Filters
 
-### 🧾 Read from Capture File
 ```bash
-tcpdump -r file.pcap
+tcpdump "tcp[tcpflags] == tcp-syn"                  # Only SYN
+tcpdump "tcp[tcpflags] & tcp-syn != 0"              # SYN set
+tcpdump "tcp[tcpflags] & (tcp-syn|tcp-ack) != 0"    # SYN or ACK
+tcpdump -r file.pcap "tcp[tcpflags] == tcp-rst" -n | wc -l  # Count RST
 ```
 
-### 💾 Save to PCAP
+---
+
+## 🎯 Common Filter Expressions
+
 ```bash
-tcpdump -i any -w capture.pcap
+tcpdump host 192.168.1.1
+tcpdump src host 10.0.0.1
+tcpdump dst host 8.8.8.8
+tcpdump port 443
+tcpdump src port 22
+tcpdump dst port 53
 ```
 
-### 📜 Timestamps in Readable Format
+---
+
+## 📦 Find Large Packet Senders
+
 ```bash
-tcpdump -tttt -r file.pcap
+tcpdump -nn -r traffic.pcap greater 15000
+tcpdump -nn -r traffic.pcap greater 15000 | awk '{print $3}' | cut -d. -f1-4 | sort | uniq -c
+```
+
+---
+
+## 🧬 Advanced Filtering: Byte Offset
+
+```bash
+ether[0] & 1 != 0                      # Multicast Ethernet
+ip[0] & 0xF != 5                       # IP packets with options
+```
+
+---
+
+## 📋 Display Format Options Summary
+
+| Option    | Description                      |
+|-----------|----------------------------------|
+| `-q`      | Quiet output                     |
+| `-e`      | Show link-layer headers (MAC)    |
+| `-A`      | ASCII content only               |
+| `-X`      | Hex + ASCII                      |
+| `-xx`     | Hex only                         |
+
+---
+
+## 🧾 File Operations
+
+```bash
+tcpdump -r file.pcap                              # Read from pcap
+tcpdump -i any -w capture.pcap                    # Write to pcap
+tcpdump -tttt -r file.pcap                        # Human-readable timestamps
 ```
